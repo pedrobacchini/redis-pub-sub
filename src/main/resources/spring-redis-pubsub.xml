@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:redis="http://www.springframework.org/schema/redis"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+       http://www.springframework.org/schema/redis
+       http://www.springframework.org/schema/redis/spring-redis-1.0.xsd">
+
+    <!-- Obtem a conexao com o banco de dados -->
+    <bean id="jedisConnectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+        <property name="hostName" value="localhost"/>
+        <property name="port" value="6379"/>
+        <property name="database" value="1"/>
+        <property name="poolConfig" ref="jedisPoolConfig"/>
+    </bean>
+
+    <!-- O pool de conexoes (a configuracao dele) -->
+    <bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig">
+        <property name="maxActive" value="100"/>
+        <property name="maxWait" value="10"/>
+        <property name="maxIdle" value="40"/>
+        <property name="minIdle" value="20"/>
+    </bean>
+
+    <!-- String Redis Serializer para serializar de forma correta as chaves -->
+    <bean id="stringRedisSerializer" class="org.springframework.data.redis.serializer.StringRedisSerializer"/>
+
+    <!-- Serializador para Revista -->
+    <bean id="serializer" class="org.springframework.data.redis.serializer.JacksonJsonRedisSerializer">
+        <constructor-arg index="0">
+            <value type="java.lang.Class">com.github.pedrobacchini.domain.Revista</value>
+        </constructor-arg>
+    </bean>
+
+    <!-- Redis Template Revista -->
+    <bean id="redisTemplateRevista" class="org.springframework.data.redis.core.RedisTemplate">
+        <property name="connectionFactory" ref="jedisConnectionFactory"/>
+        <property name="keySerializer" ref="stringRedisSerializer"/>
+        <property name="valueSerializer" ref="serializer"/>
+    </bean>
+
+    <!-- Editora -->
+    <bean id="editora" class="com.github.pedrobacchini.Editora">
+        <property name="redisTemplate" ref="redisTemplateRevista"/>
+    </bean>
+
+    <!-- Banca -->
+    <bean id="banca" class="com.github.pedrobacchini.Banca"/>
+
+    <!-- Listener regis para o container -->
+    <redis:listener-container connection-factory="jedisConnectionFactory">
+        <redis:listener ref="banca" method="recebe" topic="revista" serializer="serializer"/>
+    </redis:listener-container>
+
+</beans>
